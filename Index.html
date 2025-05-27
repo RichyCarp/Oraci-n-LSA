@@ -1,0 +1,508 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Sintaxis LSA: Ordena la Oración</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        .sign-item {
+            cursor: grab;
+            background-color: #6366f1; /* Indigo 500 */
+            color: white;
+            padding: 0.6rem 1rem;
+            border-radius: 0.75rem;
+            margin: 0.4rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            min-width: 90px; /* Adjusted min-width for better fit */
+            height: 40px; /* Fixed height */
+            font-size: 0.9rem; /* Slightly smaller font for more space */
+        }
+        .sign-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px -2px rgba(0, 0, 0, 0.15);
+        }
+        .sign-item.dragging {
+            opacity: 0.7;
+            transform: scale(1.05);
+            z-index: 1000;
+        }
+
+        #scrambled-signs-pool {
+            min-height: 100px; /* Adjusted min-height as no images */
+            border: 2px dashed #a78bfa;
+            border-radius: 1rem;
+            padding: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 0.7rem;
+            background-color: #f3e8ff;
+            transition: background-color 0.2s ease-in-out;
+            margin-bottom: 1.5rem;
+        }
+        #scrambled-signs-pool.drag-over {
+            background-color: #d8b4fe;
+            border-color: #8b5cf6;
+        }
+
+        #sentence-slots {
+            min-height: 80px; /* Adjusted min-height as no images */
+            border: 2px dashed #93c5fd;
+            border-radius: 1rem;
+            padding: 1rem;
+            display: flex;
+            flex-wrap: nowrap;
+            justify-content: center;
+            align-items: center;
+            gap: 0.7rem;
+            background-color: #e0f2fe;
+            transition: background-color 0.2s ease-in-out;
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 0.5rem;
+        }
+        #sentence-slots.drag-over {
+            background-color: #bfdbfe;
+            border-color: #3b82f6;
+        }
+
+        .slot {
+            flex: 1 1 15%;
+            min-width: 90px; /* Adjusted min-width */
+            max-width: 150px;
+            height: 40px; /* Fixed height */
+            border: 1px solid #9ca3af;
+            border-radius: 0.5rem;
+            background-color: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            color: #6b7280;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .slot.drag-over {
+            background-color: #dbeafe;
+            border-color: #60a5fa;
+        }
+        .slot.filled {
+            background-color: #eff6ff;
+            border-color: #93c5fd;
+        }
+
+        .button-primary {
+            background-color: #4f46e5;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-top: 1.5rem;
+        }
+        .button-primary:hover {
+            background-color: #4338ca;
+            transform: translateY(-1px);
+        }
+        .button-primary:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+        .feedback-box {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: none;
+        }
+        .feedback-box.correct {
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #34d399;
+        }
+        .feedback-box.incorrect {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+        .enm-prompt {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: #e0f2fe;
+            border-radius: 0.75rem;
+            border: 1px solid #93c5fd;
+            color: #1e40af;
+            font-weight: 500;
+            text-align: left;
+            display: none;
+        }
+        .scroll-hint {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-top: 0.75rem;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-weight: 500;
+        }
+        .scroll-hint .icon {
+            font-size: 1.5rem;
+            transform: rotate(90deg);
+            display: inline-block;
+            line-height: 1;
+        }
+        @media (max-width: 640px) {
+            .container {
+                padding: 1rem;
+                margin: 0.5rem;
+            }
+            .sign-item {
+                padding: 0.5rem 0.8rem;
+                margin: 0.25rem;
+                font-size: 0.85rem;
+                min-width: 70px;
+                height: 35px;
+            }
+            .slot {
+                flex: 1 1 12%;
+                min-width: 80px;
+                height: 35px;
+                font-size: 0.75rem;
+            }
+            .button-primary {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.9rem;
+            }
+            .feedback-box, .enm-prompt {
+                font-size: 0.85rem;
+            }
+            .scroll-hint {
+                font-size: 0.75rem;
+                margin-top: 0.5rem;
+            }
+            .scroll-hint .icon {
+                font-size: 1.2rem;
+            }
+            #scrambled-signs-pool {
+                min-height: 100px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="container">
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6">Juego de Sintaxis LSA</h1>
+
+        <div class="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <p class="text-lg md:text-xl font-semibold text-blue-800 mb-2">Oración en Español:</p>
+            <p id="spanish-sentence" class="text-2xl md:text-3xl font-extrabold text-blue-900"></p>
+        </div>
+
+        <div class="mb-8">
+            <p class="text-lg font-semibold text-gray-700 mb-4">Arrastra las señas a los espacios para ordenar la oración:</p>
+            <div id="scrambled-signs-pool">
+                </div>
+            <div id="sentence-slots">
+                </div>
+            <p class="scroll-hint">
+                <span class="icon">↔️</span> Desplaza horizontalmente para ver todos los espacios
+            </p>
+        </div>
+
+        <button id="check-button" class="button-primary w-full md:w-auto">
+            Verificar Respuesta
+        </button>
+
+        <div id="feedback" class="feedback-box">
+            </div>
+
+        <div id="enm-section" class="enm-prompt">
+            <p class="font-bold text-lg mb-2">¡Ahora, piensa en las Expresiones No Manuales (ENM)!</p>
+            <p id="enm-prompt-text" class="text-base"></p>
+            <p class="mt-4 text-sm text-gray-600">
+                (Este juego se enfoca en el orden de las señas. Imagina o anota mentalmente las ENM que usarías.
+                En la vida real, las ENM son cruciales para el significado completo de la oración en LSA.)
+            </p>
+        </div>
+
+        <button id="next-button" class="button-primary w-full md:w-auto hidden">
+            Siguiente Ronda
+        </button>
+    </div>
+
+    <script>
+        const spanishSentenceEl = document.getElementById('spanish-sentence');
+        const scrambledSignsPool = document.getElementById('scrambled-signs-pool');
+        const sentenceSlots = document.getElementById('sentence-slots');
+        const checkButton = document.getElementById('check-button');
+        const nextButton = document.getElementById('next-button');
+        const feedbackEl = document.getElementById('feedback');
+        const enmSectionEl = document.getElementById('enm-section');
+        const enmPromptTextEl = document.getElementById('enm-prompt-text');
+
+        let currentRoundIndex = 0;
+        let draggedSign = null; // Stores the actual DOM element being dragged
+
+        // Game data: Spanish sentence, LSA signs (scrambled), correct LSA order, and ENM prompt
+        const gameRounds = [
+            {
+                spanishSentence: "Mi mamá y papá visitarán la casa el lunes.",
+                lsaSigns: ["MAMÁ", "PAPÁ", "CASA", "LUNES", "VISITAR", "ELLOS"],
+                correctOrder: ["LUNES", "MAMÁ", "PAPÁ", "ELLOS", "CASA", "VISITAR"],
+                enmPrompt: "Para 'Mi mamá y papá visitarán la casa el lunes', ¿qué ENM usarías para indicar la acción de visitar y la relación familiar?"
+            },
+            {
+                spanishSentence: "El perro y el gato comen frutas rojas.",
+                lsaSigns: ["PERRO", "GATO", "COMER", "FRUTAS", "ROJO", "ELLOS"],
+                correctOrder: ["PERRO", "GATO", "ELLOS", "FRUTAS", "ROJO", "COMER"],
+                enmPrompt: "Para 'El perro y el gato comen frutas rojas', ¿cómo mostrarías la acción de comer y la característica 'rojo' con ENM?"
+            },
+            {
+                spanishSentence: "Nosotros estudiamos números todos los días.",
+                lsaSigns: ["NOSOTROS", "ESTUDIAR", "NÚMEROS", "TODOS", "DÍA", "APRENDER"],
+                correctOrder: ["NOSOTROS", "TODOS", "DÍA", "NÚMEROS", "ESTUDIAR", "APRENDER"],
+                enmPrompt: "Para 'Nosotros estudiamos números todos los días', ¿qué ENM usarías para enfatizar la continuidad de 'todos los días' y la concentración en 'estudiar'?"
+            },
+            {
+                spanishSentence: "El doctor tiene una camisa azul y un pantalón blanco.",
+                lsaSigns: ["DOCTOR", "TIENE", "CAMISA", "AZUL", "PANTALÓN", "BLANCO"],
+                correctOrder: ["DOCTOR", "CAMISA", "AZUL", "PANTALÓN", "BLANCO", "TIENE"],
+                enmPrompt: "Para 'El doctor tiene una camisa azul y un pantalón blanco', ¿cómo indicarías la descripción de la ropa con ENM? (Ej: mirada hacia la ropa, expresión neutra)."
+            }
+        ];
+
+        // Helper to shuffle an array
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Load a new round
+        function loadRound(index) {
+            if (index >= gameRounds.length) {
+                endGame();
+                return;
+            }
+
+            const currentRound = gameRounds[index];
+            spanishSentenceEl.textContent = currentRound.spanishSentence;
+
+            // Clear previous elements
+            scrambledSignsPool.innerHTML = '';
+            sentenceSlots.innerHTML = '';
+            feedbackEl.style.display = 'none';
+            enmSectionEl.style.display = 'none';
+            checkButton.style.display = 'block';
+            nextButton.style.display = 'none';
+            feedbackEl.classList.remove('correct', 'incorrect');
+
+            // Create draggable sign items in the pool (only text now)
+            const shuffledSigns = shuffleArray([...currentRound.lsaSigns]); // Shuffle a copy
+            shuffledSigns.forEach(signText => { // signText is now just the string
+                const div = document.createElement('div');
+                div.classList.add('sign-item');
+                div.setAttribute('draggable', 'true');
+                div.id = `sign-${signText}`; // ID based on text
+                div.textContent = signText; // Set text content directly
+                scrambledSignsPool.appendChild(div);
+            });
+
+            // Create empty slots based on the correct order length
+            for (let i = 0; i < currentRound.correctOrder.length; i++) {
+                const slot = document.createElement('div');
+                slot.classList.add('slot');
+                slot.dataset.index = i; // Store index for later checking
+                sentenceSlots.appendChild(slot);
+            }
+
+            addDragAndDropListeners();
+        }
+
+        // Add drag and drop listeners
+        function addDragAndDropListeners() {
+            // Drag start for sign items
+            document.querySelectorAll('.sign-item').forEach(item => {
+                item.addEventListener('dragstart', (e) => {
+                    draggedSign = e.target;
+                    e.target.classList.add('dragging');
+                    e.dataTransfer.setData('text/plain', e.target.id); // Set data for transfer
+                });
+
+                item.addEventListener('dragend', (e) => {
+                    e.target.classList.remove('dragging');
+                    draggedSign = null;
+                });
+            });
+
+            // Drop zone for the scrambled signs pool (to return signs)
+            scrambledSignsPool.addEventListener('dragover', (e) => {
+                e.preventDefault(); // Allow drop
+                scrambledSignsPool.classList.add('drag-over');
+            });
+            scrambledSignsPool.addEventListener('dragleave', () => {
+                scrambledSignsPool.classList.remove('drag-over');
+            });
+            scrambledSignsPool.addEventListener('drop', (e) => {
+                e.preventDefault();
+                scrambledSignsPool.classList.remove('drag-over');
+                if (draggedSign) {
+                    // If the dragged sign was in a slot, clear that slot first
+                    const parentSlot = draggedSign.closest('.slot');
+                    if (parentSlot) {
+                        parentSlot.classList.remove('filled');
+                        parentSlot.innerHTML = ''; // Clear the slot content
+                    }
+                    scrambledSignsPool.appendChild(draggedSign); // Move sign back to pool
+                }
+            });
+
+
+            // Drop zones for each slot
+            document.querySelectorAll('.slot').forEach(slot => {
+                slot.addEventListener('dragover', (e) => {
+                    e.preventDefault(); // Allow drop
+                    // Only highlight if the slot is empty or if we are dragging a sign from another slot
+                    if (!slot.querySelector('.sign-item') || (draggedSign && draggedSign.closest('.slot') === slot)) {
+                         slot.classList.add('drag-over');
+                    }
+                });
+
+                slot.addEventListener('dragleave', (e) => {
+                    slot.classList.remove('drag-over');
+                });
+
+                slot.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    slot.classList.remove('drag-over');
+
+                    if (draggedSign) {
+                        // If the slot is empty, or if we're dragging from another slot to this one
+                        if (!slot.querySelector('.sign-item') || draggedSign.closest('.slot') === slot) {
+                            // If the dragged sign was in a slot, clear its original slot
+                            const originalSlot = draggedSign.closest('.slot');
+                            if (originalSlot && originalSlot !== slot) { // If moving from one slot to another
+                                originalSlot.classList.remove('filled');
+                                originalSlot.innerHTML = '';
+                            }
+                            slot.appendChild(draggedSign); // Place the sign in the new slot
+                            slot.classList.add('filled');
+                        } else {
+                            // Slot is occupied, and we're not dragging from this slot, so return the dragged sign
+                            // This scenario is handled by the dragend event which ensures draggedSign is reset.
+                            // No explicit action needed here, as the sign won't be moved.
+                        }
+                    }
+                });
+            });
+        }
+
+
+        // Check the user's answer
+        checkButton.addEventListener('click', () => {
+            const userOrder = [];
+            let allSlotsFilled = true;
+
+            // Iterate through slots to get the current order
+            document.querySelectorAll('.slot').forEach(slot => {
+                const signInSlot = slot.querySelector('.sign-item');
+                if (signInSlot) {
+                    userOrder.push(signInSlot.textContent); // Get text content directly
+                } else {
+                    allSlotsFilled = false;
+                }
+            });
+
+            feedbackEl.style.display = 'block';
+            if (!allSlotsFilled) {
+                feedbackEl.classList.remove('correct');
+                feedbackEl.classList.add('incorrect');
+                feedbackEl.textContent = '¡Faltan señas por colocar! Asegúrate de llenar todos los espacios.';
+                enmSectionEl.style.display = 'none';
+                return; // Stop here if not all slots are filled
+            }
+
+            const correctOrder = gameRounds[currentRoundIndex].correctOrder;
+
+            if (JSON.stringify(userOrder) === JSON.stringify(correctOrder)) {
+                feedbackEl.classList.remove('incorrect');
+                feedbackEl.classList.add('correct');
+                feedbackEl.textContent = '¡Correcto! ¡Excelente trabajo con el orden de las señas!';
+                checkButton.style.display = 'none';
+                nextButton.style.display = 'block';
+
+                // Show ENM prompt
+                enmPromptTextEl.textContent = gameRounds[currentRoundIndex].enmPrompt;
+                enmSectionEl.style.display = 'block';
+
+            } else {
+                feedbackEl.classList.remove('correct');
+                feedbackEl.classList.add('incorrect');
+                feedbackEl.textContent = 'Incorrecto. ¡Sigue intentándolo! Revisa el orden de Sujeto-Objeto-Verbo.';
+                enmSectionEl.style.display = 'none'; // Hide ENM if incorrect
+            }
+        });
+
+        // Go to the next round
+        nextButton.addEventListener('click', () => {
+            currentRoundIndex++;
+            loadRound(currentRoundIndex);
+        });
+
+        // End of game
+        function endGame() {
+            spanishSentenceEl.textContent = "¡Felicidades! Has completado todas las rondas.";
+            scrambledSignsPool.innerHTML = '';
+            sentenceSlots.innerHTML = '<p class="text-gray-500">¡Juego terminado!</p>';
+            feedbackEl.classList.remove('correct', 'incorrect');
+            feedbackEl.style.display = 'block';
+            feedbackEl.textContent = '¡Has dominado la sintaxis básica de la LSA!';
+            checkButton.style.display = 'none';
+            nextButton.style.display = 'none';
+            enmSectionEl.style.display = 'none';
+        }
+
+        // Initialize the game on window load
+        window.onload = () => {
+            loadRound(currentRoundIndex);
+        };
+
+    </script>
+</body>
+</html>
